@@ -1,0 +1,17 @@
+# IDEs
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv
+.uv/
+uv-cache/
+.python-version
+
+# OS
+.DS_Store
+Thumbs.db
