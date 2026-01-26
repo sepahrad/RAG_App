@@ -12,26 +12,26 @@ class QdrantStorage:
                 vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
             )
 
-        def upsert(self, ids, vectors, payloads): # Insert and Update
-            points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
-            self.client.upsert(self.collection, points=points)
+    def upsert(self, ids, vectors, payloads): # Insert and Update
+        points = [PointStruct(id=ids[i], vector=vectors[i], payload=payloads[i]) for i in range(len(ids))]
+        self.client.upsert(self.collection, points=points)
 
-        def search(self, query, top_k: int = 5):
-            results = self.client.search(collection_name=self.collection,
-                                         query_vector=query,
-                                         with_payload=True, limit=top_k)
+    def search(self, query, top_k: int = 5):
+        results = self.client.search(collection_name=self.collection,
+                                     query_vector=query,
+                                     with_payload=True, limit=top_k)
 
-            context = []
-            sources = set()
+        context = []
+        sources = set()
 
-            for r in results:
-                payload = getattr(r, "payload", None) or {}
-                text = payload.get("text", "")
-                source = payload.get("source", "")
+        for r in results:
+            payload = getattr(r, "payload", None) or {}
+            text = payload.get("text", "")
+            source = payload.get("source", "")
 
-                if text:
-                    context.append(text)
-                    sources.add(source)
+            if text:
+                context.append(text)
+                sources.add(source)
 
 
-            return {"context": context, "sources": list(sources)}
+        return {"context": context, "sources": list(sources)}
