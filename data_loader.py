@@ -19,8 +19,9 @@ def load_and_chunk_pdf(path: str):
     chunks = []
 
     for t in texts:
-        chunks.extend(splitter.split(t))
+        chunks.extend(splitter.split_text(t))
 
+    #print(chunks)
     return chunks
 
 def embed_texts(text: list[str]) -> list[list[float]]:
@@ -29,4 +30,5 @@ def embed_texts(text: list[str]) -> list[list[float]]:
         input=text,
     )
 
+    #print(response.data)
     return [item.embedding for item in response.data]
