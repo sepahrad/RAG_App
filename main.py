@@ -9,7 +9,7 @@ import os
 import datetime
 from data_loader import load_and_chunk_pdf, embed_texts
 from vector_db import QdrantStorage
-from custom_types import RAGQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
+from models import RAGQueryResult, RAGSearchResult, RAGUpsertResult, RAGChunkAndSrc
 
 load_dotenv()
 
@@ -31,12 +31,16 @@ async def rag_ingest_pdf(ctx: inngest.Context):
         chunks = load_and_chunk_pdf(pdf_path)
         return RAGChunkAndSrc(chunks=chunks, source_id=source_id)
 
+    # If the record exists - Update it / If not: Insert it
     def _upsert(chunks_and_src: RAGChunkAndSrc) -> RAGUpsertResult:
         chunks = chunks_and_src.chunks
         source_id = chunks_and_src.source_id
         vecs = embed_texts(chunks)
         ids = [str(uuid.uuid5(uuid.NAMESPACE_URL, f"{source_id}:{i}")) for i in range(len(chunks))] # Generate UUID for each vectors
         payloads = [{"source": source_id, "text": chunks[i]} for i in range(len(chunks))]
+        # print(ids)
+        # print(vecs)
+        # print(payloads)
         QdrantStorage().upsert(ids, vecs, payloads)
 
         return RAGUpsertResult(ingested=len(chunks))
@@ -48,7 +52,24 @@ async def rag_ingest_pdf(ctx: inngest.Context):
 
 @inngest_client.create_function(
     fn_id="RAG: Query PDF",
-    trigger=inngest.TriggerEvent(event="rag/query_pdf_ai")
+    trigger=inngest.TriggerEvent(event="rag/query_pdf_ai"),
+
+    # Global rate limit (all users/IPs)
+    # Only X number of events per Y minute
+    # rate_limit=inngest.RateLimit(limit=2, period=datetime.timedelta(minutes=1)),
+
+    # Per-user rate limit (Inngest requires event.data.user_id)
+    # throttle=inngest.Throttle(
+    #     key="event.data.user_id",
+    #     limit=10,
+    #     period=datetime.timedelta(minutes=1),
+    #     burst=2,
+    # ),
+
+    # Per-IP concurrency guard (Inngest requires event.data.ip)
+    # concurrency=[
+    #     inngest.Concurrency(key="event.data.ip", limit=2, scope="fn"),
+    # ],
 )
 async def rag_query_pdf_ai(ctx: inngest.Context):
     def _search(question: str, top_k: int = 5) -> RAGSearchResult:
@@ -62,6 +83,7 @@ async def rag_query_pdf_ai(ctx: inngest.Context):
     found = await ctx.step.run("embed-and-search", lambda: _search(question, top_k), output_type=RAGSearchResult)
 
     context_block = "\n\n".join(f"- {c}" for c in found.contexts)
+    # print(context_block)
     user_content = (
         "Use the following context to answer the question.\n\n"
         f"Context:\n{context_block}\n\n"
